@@ -1,0 +1,24 @@
+[tool.pdm]
+
+[project]
+name = "splinecam"
+version = "0.1.0"
+description = "Fork of original SplineCAM with updates and fixes"
+authors = [
+    { name = "Daniel Capecci", email = "7775585+dk0d@users.noreply.github.com" },
+]
+dependencies = [
+    "torch>=1.12",
+    "tqdm",
+    "networkx",
+    "graph-tool>=2.45",
+    "python-igraph>=0.10",
+    "livelossplot",
+]
+requires-python = ">=3.10"
+readme = "README.md"
+license = { text = "MIT" }
+
+[build-system]
+requires = ["pdm-pep517>=1.0.0"]
+build-backend = "pdm.pep517.api"
