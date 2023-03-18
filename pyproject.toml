@@ -5,6 +5,7 @@ name = "splinecam"
 version = "0.1.0"
 description = "Fork of original SplineCAM with updates and fixes"
 authors = [
+    { name = "Ahmed Imtiaz", email = "ahmed.imtiaz.prio@gmail.com" },
     { name = "Daniel Capecci", email = "7775585+dk0d@users.noreply.github.com" },
 ]
 dependencies = [
@@ -18,6 +19,10 @@ dependencies = [
 requires-python = ">=3.10"
 readme = "README.md"
 license = { text = "MIT" }
+
+[project.urls]
+Homepage = "https://imtiazhumayun.github.io/splinecam"
+Repository = "https://github.com/AhmedImtiazPrio/splinecam"
 
 [build-system]
 requires = ["pdm-pep517>=1.0.0"]
