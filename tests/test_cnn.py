@@ -1,5 +1,5 @@
 import torch
-import splinecam as sc
+import sdg.viz.splinecam as sc
 
 
 GLOBAL_DTYPE = torch.float32  # TODO: does reducing 64->32 introduce numerical errors?
