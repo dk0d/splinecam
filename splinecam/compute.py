@@ -219,5 +219,5 @@ def get_partitions_with_db(
         )
     except:
         endpoints = [None]
-
-    return out_cyc, endpoints
+        
+    return out_cyc,endpoints,Abw

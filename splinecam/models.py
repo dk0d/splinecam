@@ -1,8 +1,7 @@
 from torchvision import models
 import torch.nn as nn
 
-
-def vgg11_bn(n_class=200, input_res=64, weights=None):
+def vgg11_bn(n_class=200, input_res=64, weights=None, bias=False):
     """
     Converts maxpools to avgpool and makes usable via library
     """
@@ -14,34 +13,32 @@ def vgg11_bn(n_class=200, input_res=64, weights=None):
 
         model_ft = models.vgg11_bn(weights)
 
-        model_ft.features[3] = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
-        model_ft.features[7] = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
-        model_ft.features[14] = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
-        model_ft.features[21] = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
-        model_ft.features[28] = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
-        model_ft.avgpool = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
-        model_ft.classifier = nn.Linear(512, n_class)
-        model_ft = nn.Sequential(
-            *[each for each in model_ft.features],
-            #                                  model_ft.avgpool,
-            nn.Flatten(),
-            model_ft.classifier
-        )
-
-        # remove conv bias
-        for each in [0, 4, 8, 11, 15, 18, 22, 25]:
-            model_ft[each].bias = None
-
-        model_ft[0].stride = 2
+        model_ft.features[3] = nn.AvgPool2d(kernel_size=2,stride=2,padding=0)
+        model_ft.features[7] = nn.AvgPool2d(kernel_size=2,stride=2,padding=0)
+        model_ft.features[14] = nn.AvgPool2d(kernel_size=2,stride=2,padding=0)
+        model_ft.features[21] = nn.AvgPool2d(kernel_size=2,stride=2,padding=0)
+        model_ft.features[28] = nn.AvgPool2d(kernel_size=2,stride=2,padding=0)
+        model_ft.avgpool = nn.AvgPool2d(kernel_size=2,stride=2,padding=0)
+        model_ft.classifier = nn.Linear(512,n_class)
+        model_ft = nn.Sequential(*[each for each in model_ft.features],
+#                                  model_ft.avgpool,
+                                 nn.Flatten(),model_ft.classifier)
+        
+        # remove conv bias if desired
+        if not bias:
+            for each in [0,4,8,11,15,18,22,25]:
+                model_ft[each].bias = None
+        
+        model_ft[0].stride=2
 
     else:
         raise NotImplemented
 
     return model_ft
-
-
-def vgg16_bn(n_class=200, input_res=64, weights=None):
-
+    
+    
+def vgg16_bn(n_class=200, input_res=64, weights=None, bias=False):
+    
     if weights is None:
         weights = models.VGG16_BN_Weights.IMAGENET1K_V1
 
@@ -51,7 +48,8 @@ def vgg16_bn(n_class=200, input_res=64, weights=None):
     layers = []
     for each in model.features:
         if type(each) == torch.nn.Conv2d:
-            each.bias = None
+            if not bias:
+                each.bias = None
             layers.append(each)
 
         elif type(each) == torch.nn.modules.MaxPool2d:
@@ -83,3 +81,5 @@ def vgg16_bn(n_class=200, input_res=64, weights=None):
     model = torch.nn.Sequential(*model.features, *model.classifier)
 
     return model
+    
+    
