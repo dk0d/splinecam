@@ -6,7 +6,7 @@ import igraph as ig
 import graph_tool as gt
 from graph_tool import topology
 
-from .utils import verify_collinear, get_region_means, get_Abw
+from .utils import verify_collinear
 
 import tqdm
 
@@ -44,9 +44,12 @@ def find_intersection_2D(line1, line2, eps: float = 1e-7, verify: bool = False):
 
     flag = False
     if verify:
-
         flag = torch.allclose(
-            torch.bmm(Ab[..., :-1], v[..., None]), -Ab[..., -1][..., None], atol=eps, rtol=0.0, equal_nan=False
+            torch.bmm(Ab[..., :-1], v[..., None]),
+            -Ab[..., -1][..., None],
+            atol=eps,
+            rtol=0.0,
+            equal_nan=False,
         )
 
     return v, flag
@@ -138,7 +141,6 @@ def vertex_order_along_line(endpoint1, endpoint2, v):
 
 # @torch.jit.script
 def order_vertices_poly(v, hyp_v1_v2_idx, poly, node_names):
-
     hyp_v1_v2_idx = hyp_v1_v2_idx.clone()
     v = v.clone()
     poly = poly.clone()
@@ -149,7 +151,6 @@ def order_vertices_poly(v, hyp_v1_v2_idx, poly, node_names):
     node_names_new = []
 
     for ii in torch.unique(hyp_v1_v2_idx[:, 1]):
-
         # vertices with same start node
         mask = hyp_v1_v2_idx[:, 1] == ii
         adj = hyp_v1_v2_idx[mask].clone()
@@ -157,7 +158,9 @@ def order_vertices_poly(v, hyp_v1_v2_idx, poly, node_names):
         nodes = node_names[mask].clone()
 
         # order along line, ordered from poly[ii] to poly[ii+1]
-        idx = vertex_order_along_line(poly[ii][None, ...], poly[ii + 1][None, ...], verts)
+        idx = vertex_order_along_line(
+            poly[ii][None, ...], poly[ii + 1][None, ...], verts
+        )
 
         v_new.append(verts[idx])
         hyp_v1_v2_idx_new.append(adj[idx])
@@ -231,7 +234,6 @@ def _find_cycles(V, start_edge):
     out_cycles = []
 
     for each_edge in edge_list_remove:
-
         remove_q = []
 
         vertices = []
@@ -242,14 +244,17 @@ def _find_cycles(V, start_edge):
 
         ## if no way in and no way out
 
-        if not (V.get_in_degrees([vertex_id[1]])[0] > 1) and (V.get_out_degrees([vertex_id[0]])[0] > 1):
-
+        if not (V.get_in_degrees([vertex_id[1]])[0] > 1) and (
+            V.get_out_degrees([vertex_id[0]])[0] > 1
+        ):
             continue
 
         if V.edge(*vertices) is None and V.edge(vertices[1], vertices[0]) is None:
             continue
 
-        remove_q.append(V.edge(vertices[1], vertices[0]))  # remove opposite path as well
+        remove_q.append(
+            V.edge(vertices[1], vertices[0])
+        )  # remove opposite path as well
         vs, es = topology.shortest_path(
             V,
             source=vertices[0],
@@ -312,13 +317,16 @@ def cycle_nodes2vertices(V, cycles, dcast=np.asarray):
     Get vertices for each cycles
     """
 
-    cycles = [[dcast(V.vp["v"][V.vertex(v)]) for v in each_cycle] for each_cycle in cycles]
+    cycles = [
+        [dcast(V.vp["v"][V.vertex(v)]) for v in each_cycle] for each_cycle in cycles
+    ]
 
     return cycles
 
 
-def create_poly_hyp_graph(poly, hyps, q=None, hyp_endpoints=None, dtype=torch.float64, verify=True):
-
+def create_poly_hyp_graph(
+    poly, hyps, q=None, hyp_endpoints=None, dtype=torch.float64, verify=True
+):
     G = nx.Graph()
 
     #     hyps = layer.get_weights().type(dtype)
@@ -358,19 +366,22 @@ def create_poly_hyp_graph(poly, hyps, q=None, hyp_endpoints=None, dtype=torch.fl
 
     ## if multiple edges are not intersected
     if len(no_inter_idx) > 1:
-
         [
             G.add_edge(src, dst, layer=-1, hyp=hyp)
             for src, dst, hyp in zip(
-                poly_node_idx[no_inter_idx], poly_node_idx[no_inter_idx + 1], poly_hyp_idx[no_inter_idx]
+                poly_node_idx[no_inter_idx],
+                poly_node_idx[no_inter_idx + 1],
+                poly_hyp_idx[no_inter_idx],
             )
         ]
 
     ## if one edge is not intersected
     elif len(no_inter_idx) == 1:
-
         G.add_edge(
-            poly_node_idx[no_inter_idx], poly_node_idx[no_inter_idx + 1], layer=-1, hyp=poly_hyp_idx[no_inter_idx]
+            poly_node_idx[no_inter_idx],
+            poly_node_idx[no_inter_idx + 1],
+            layer=-1,
+            hyp=poly_hyp_idx[no_inter_idx],
         )
 
     ## if all edges are intersected
@@ -392,7 +403,6 @@ def create_poly_hyp_graph(poly, hyps, q=None, hyp_endpoints=None, dtype=torch.fl
     v = v.type(poly_lines.type())
 
     if verify:
-
         assert flag
 
         flag = verify_collinear(v, poly[hyp_v1_v2_idx[:, 1]], poly[hyp_v1_v2_idx[:, 2]])
@@ -411,13 +421,18 @@ def create_poly_hyp_graph(poly, hyps, q=None, hyp_endpoints=None, dtype=torch.fl
     ### add to graph
 
     # indices for new nodes
-    new_node_idx = torch.from_numpy(np.asarray(range(new_node_start, new_node_start + v.shape[0]))).type(torch.int)
+    new_node_idx = torch.from_numpy(
+        np.asarray(range(new_node_start, new_node_start + v.shape[0]))
+    ).type(torch.int)
 
     # create list of ordered vertices
-    v_collect, hyp_v1_v2_idx_collect, node_names_collect = order_vertices_poly(v, hyp_v1_v2_idx, poly, new_node_idx)
+    v_collect, hyp_v1_v2_idx_collect, node_names_collect = order_vertices_poly(
+        v, hyp_v1_v2_idx, poly, new_node_idx
+    )
 
-    for v_set, hyp_v1_v2_idx_set, node_names in zip(v_collect, hyp_v1_v2_idx_collect, node_names_collect):
-
+    for v_set, hyp_v1_v2_idx_set, node_names in zip(
+        v_collect, hyp_v1_v2_idx_collect, node_names_collect
+    ):
         add_line_to_graph(
             G=G,
             node_names=node_names,
@@ -440,7 +455,6 @@ def create_poly_hyp_graph(poly, hyps, q=None, hyp_endpoints=None, dtype=torch.fl
     if (
         uniq_hyp_idx.shape[0] <= 1
     ):  # < because of no intersection case ##TODO: check why no intersection here for deeper layers
-
         [
             G.add_edge(nodes[0], nodes[1], layer=0, hyp=name)
             for nodes, name in zip(hyp_endpoint_nodes.numpy(), uniq_hyp_idx)
@@ -449,14 +463,14 @@ def create_poly_hyp_graph(poly, hyps, q=None, hyp_endpoints=None, dtype=torch.fl
         return G
 
     # get combination idx of unique hyperplanes that intersect
-    comb_idx, no_inter_idx = create_hyp_combinations(hyps=hyps, hyp_idx=uniq_hyp_idx, endpoints=hyp_endpoints)
+    comb_idx, no_inter_idx = create_hyp_combinations(
+        hyps=hyps, hyp_idx=uniq_hyp_idx, endpoints=hyp_endpoints
+    )
 
     ## if combination idx empty, just connect the endpoints
 
     if no_inter_idx.shape[0] != 0:
-
         if no_inter_idx.shape[0] == 1:
-
             G.add_edge(
                 hyp_endpoint_nodes.numpy()[no_inter_idx.cpu()][0],
                 hyp_endpoint_nodes.numpy()[no_inter_idx.cpu()][1],
@@ -465,24 +479,31 @@ def create_poly_hyp_graph(poly, hyps, q=None, hyp_endpoints=None, dtype=torch.fl
             )
 
         else:
-
             [
                 G.add_edge(nodes[0], nodes[1], layer=0, hyp=name)
-                for nodes, name in zip(hyp_endpoint_nodes.numpy()[no_inter_idx.cpu()], uniq_hyp_idx[no_inter_idx.cpu()])
+                for nodes, name in zip(
+                    hyp_endpoint_nodes.numpy()[no_inter_idx.cpu()],
+                    uniq_hyp_idx[no_inter_idx.cpu()],
+                )
             ]
 
     if comb_idx.shape[0] == 0:
         return G
 
-    v, flag = find_intersection_2D(hyps[comb_idx[:, 0]], hyps[comb_idx[:, 1]], verify=verify)
+    v, flag = find_intersection_2D(
+        hyps[comb_idx[:, 0]], hyps[comb_idx[:, 1]], verify=verify
+    )
     if verify:
         assert flag
 
     new_node_start = new_node_idx[-1] + 1
-    new_node_idx = torch.arange(new_node_start, new_node_start + v.shape[0]).type(torch.int)
+    new_node_idx = torch.arange(new_node_start, new_node_start + v.shape[0]).type(
+        torch.int
+    )
 
-    for ii, each_hyp in tqdm.tqdm(enumerate(uniq_hyp_idx), desc="iterating hyps", total=len(uniq_hyp_idx)):
-
+    for ii, each_hyp in tqdm.tqdm(
+        enumerate(uniq_hyp_idx), desc="iterating hyps", total=len(uniq_hyp_idx)
+    ):
         mask = torch.logical_or(comb_idx[:, 0] == each_hyp, comb_idx[:, 1] == each_hyp)
 
         if not (torch.sum(mask)):  # hyp intersects at vertex, hence
@@ -494,7 +515,9 @@ def create_poly_hyp_graph(poly, hyps, q=None, hyp_endpoints=None, dtype=torch.fl
         nodes = new_node_idx[mask].clone()
 
         idx = vertex_order_along_line(
-            endpoint1=hyp_endpoints[ii, 0][None, ...], endpoint2=hyp_endpoints[ii, 1][None, ...], v=verts
+            endpoint1=hyp_endpoints[ii, 0][None, ...],
+            endpoint2=hyp_endpoints[ii, 1][None, ...],
+            v=verts,
         )
 
         verts = verts[idx]
@@ -516,7 +539,6 @@ def create_poly_hyp_graph(poly, hyps, q=None, hyp_endpoints=None, dtype=torch.fl
 
 @torch.jit.script
 def hyp2input(hyps, Abw):
-
     hyps = hyps[..., None, :]
 
     hyps_inp = torch.bmm(hyps[..., :-1], Abw[..., :-1])
@@ -543,7 +565,6 @@ def cycles_list2vec(regions, repeat_first: bool = True):
     start = 0
     ends = torch.zeros(len(regions), dtype=torch.int64)
     for i in range(len(regions)):
-
         n = regions[i].shape[0]
         cyc_idx[start : start + n] = i
         start += n
@@ -554,10 +575,11 @@ def cycles_list2vec(regions, repeat_first: bool = True):
 
 @torch.jit.script
 def get_edge_hyp_intersections(vec_cyc, hyp_v1_v2_idx, hyps_input):
-
     vec_cyc = vec_cyc.type(torch.float64)
 
-    poly_lines = make_line_2D(vec_cyc[hyp_v1_v2_idx[:, 1]], vec_cyc[hyp_v1_v2_idx[:, 2]])
+    poly_lines = make_line_2D(
+        vec_cyc[hyp_v1_v2_idx[:, 1]], vec_cyc[hyp_v1_v2_idx[:, 2]]
+    )
 
     v, flag = find_intersection_2D(poly_lines, hyps_input, verify=False)
 
@@ -584,12 +606,16 @@ def create_hyp_combinations(hyps, hyp_idx, endpoints):
     assert len(hyp_idx) == endpoints.shape[0]
 
     ## check intersection for endpoints and hyps
-    q = get_intersection_pattern(endpoints.reshape(-1, endpoints.shape[-1]), hyps[hyp_idx])
+    q = get_intersection_pattern(
+        endpoints.reshape(-1, endpoints.shape[-1]), hyps[hyp_idx]
+    )
     q = q.reshape(-1, 2, hyp_idx.shape[0])
 
     ## only consider endpoints which change pattern
     #     q = np.logical_xor.reduce(q,axis=1)
-    q = torch.logical_xor(q[:, 0, :].reshape(-1), q[:, 1, :].reshape(-1)).view(q.shape[0], q.shape[-1])
+    q = torch.logical_xor(q[:, 0, :].reshape(-1), q[:, 1, :].reshape(-1)).view(
+        q.shape[0], q.shape[-1]
+    )
 
     # remove upper triangular and diagonal
     mask = torch.tril(torch.ones_like(q))
@@ -605,8 +631,9 @@ def create_hyp_combinations(hyps, hyp_idx, endpoints):
 
 
 @torch.no_grad()
-def to_next_layer_partition(cycles, Abw, current_layer, NN, dtype=torch.float64, device="cuda"):
-
+def to_next_layer_partition(
+    cycles, Abw, current_layer, NN, dtype=torch.float64, device="cuda"
+):
     vec_cyc, cyc_idx, ends = cycles_list2vec(cycles)
     cycles_next = NN.layers[:current_layer].forward(vec_cyc.to(device))
     q = NN.layers[current_layer].get_intersection_pattern(cycles_next)
@@ -629,7 +656,9 @@ def to_next_layer_partition(cycles, Abw, current_layer, NN, dtype=torch.float64,
     ## query hyps, only get rows which intersect, create idx map
     inter_hyps_idx = torch.unique(hyp_vert_cyc_idx[:, 0])
     hyps = NN.layers[current_layer].get_weights(row_idx=inter_hyps_idx)
-    hyp_idx_map = torch.ones(q.shape[1], dtype=torch.int64) * (hyps.shape[0] + 100)  ## initialize with idx out of range
+    hyp_idx_map = torch.ones(q.shape[1], dtype=torch.int64) * (
+        hyps.shape[0] + 100
+    )  ## initialize with idx out of range
     hyp_idx_map[inter_hyps_idx] = torch.arange(hyps.shape[0], dtype=torch.int64)
 
     ## bring hyps to corresponding cycle inputs
@@ -656,7 +685,6 @@ def to_next_layer_partition(cycles, Abw, current_layer, NN, dtype=torch.float64,
 
     ## for each intersected cycle, find new regions
     for target_cycle_idx in tqdm.tqdm(uniq_cycle_idx):
-
         vert_mask = cyc_idx == target_cycle_idx
         hyp_mask = hyp_vert_cyc_idx[::2, -1] == target_cycle_idx
 
@@ -669,7 +697,10 @@ def to_next_layer_partition(cycles, Abw, current_layer, NN, dtype=torch.float64,
 
         G = ig.Graph.from_networkx(G)
 
-        G = G.to_graph_tool(vertex_attributes={"v": "vector<float>"}, edge_attributes={"layer": "int", "hyp": "int"})
+        G = G.to_graph_tool(
+            vertex_attributes={"v": "vector<float>"},
+            edge_attributes={"layer": "int", "hyp": "int"},
+        )
 
         if current_layer == 1:
             print("Finding layer 1 regions")
@@ -689,7 +720,11 @@ def to_next_layer_partition(cycles, Abw, current_layer, NN, dtype=torch.float64,
         res_regions += cycles_new
 
     ## add cycles that were not intersected
-    non_int_cyc_idx = [each_idx for each_idx in torch.arange(len(cycles)) if each_idx not in uniq_cycle_idx]
+    non_int_cyc_idx = [
+        each_idx
+        for each_idx in torch.arange(len(cycles))
+        if each_idx not in uniq_cycle_idx
+    ]
 
     res_regions += [cycles[each_idx] for each_idx in non_int_cyc_idx]
     new_cyc_idx += non_int_cyc_idx
@@ -698,11 +733,22 @@ def to_next_layer_partition(cycles, Abw, current_layer, NN, dtype=torch.float64,
 
 
 def _batched_gpu_op(
-    method, data, batch_size, out_size, batch_device="cuda", dtype=torch.float32, workers=2, out_device="cpu"
+    method,
+    data,
+    batch_size,
+    out_size,
+    batch_device="cuda",
+    dtype=torch.float32,
+    workers=2,
+    out_device="cpu",
 ):
-
     dataloadr = torch.utils.data.DataLoader(
-        data, pin_memory=False, batch_size=batch_size, num_workers=workers, shuffle=False, drop_last=False
+        data,
+        pin_memory=False,
+        batch_size=batch_size,
+        num_workers=workers,
+        shuffle=False,
+        drop_last=False,
     )
 
     ##malloc
@@ -710,7 +756,6 @@ def _batched_gpu_op(
 
     start = 0
     for in_batch in dataloadr:
-
         end = start + in_batch.shape[0]
         out_batch = method(in_batch.to(batch_device))
         out[start:end] = out_batch.to(out_device)
@@ -733,8 +778,9 @@ class util_dataset(torch.utils.data.Dataset):
         return self.data1[idx], self.data2[idx]
 
 
-def _batched_gpu_op_2(method, data1, data2, batch_size, out_size, dtype=torch.float32, workers=2):
-
+def _batched_gpu_op_2(
+    method, data1, data2, batch_size, out_size, dtype=torch.float32, workers=2
+):
     assert data1.shape[0] == data2.shape[0]
 
     dataloadr = torch.utils.data.DataLoader(
@@ -751,7 +797,6 @@ def _batched_gpu_op_2(method, data1, data2, batch_size, out_size, dtype=torch.fl
 
     start = 0
     for in_batch1, in_batch2 in dataloadr:
-
         end = start + in_batch1.shape[0]
         out_batch = method(in_batch1.cuda(), in_batch2.cuda())
         out[start:end] = out_batch.cpu()
@@ -762,11 +807,20 @@ def _batched_gpu_op_2(method, data1, data2, batch_size, out_size, dtype=torch.fl
 
 @torch.no_grad()
 def to_next_layer_partition_batched(
-    cycles, Abw, current_layer, NN, dtype=torch.float64, device="cuda", batch_size=-1, fwd_batch_size=-1, workers=2
+    cycles,
+    Abw,
+    current_layer,
+    NN,
+    dtype=torch.float64,
+    device="cuda",
+    batch_size=-1,
+    fwd_batch_size=-1,
+    workers=2,
 ):
-
     if batch_size == -1:  ## revert to non-batched
-        res_regions, new_cyc_idx = to_next_layer_partition(cycles, Abw, current_layer, NN, dtype, device)
+        res_regions, new_cyc_idx = to_next_layer_partition(
+            cycles, Abw, current_layer, NN, dtype, device
+        )
         return res_regions, new_cyc_idx
 
     vec_cyc, cyc_idx, ends = cycles_list2vec(cycles)
@@ -774,7 +828,9 @@ def to_next_layer_partition_batched(
     #     cycles_next = NN.layers[:current_layer].forward(vec_cyc.to(device))
     #     q = NN.layers[current_layer].get_intersection_pattern(cycles_next)
 
-    fused_op = lambda x: NN.layers[current_layer].get_intersection_pattern(NN.layers[:current_layer].forward(x))
+    fused_op = lambda x: NN.layers[current_layer].get_intersection_pattern(
+        NN.layers[:current_layer].forward(x)
+    )
 
     q = _batched_gpu_op(
         fused_op,
@@ -811,7 +867,9 @@ def to_next_layer_partition_batched(
     ## query hyps, only get rows which intersect, create idx map
     inter_hyps_idx = torch.unique(hyp_vert_cyc_idx[:, 0])
     hyps = NN.layers[current_layer].get_weights(row_idx=inter_hyps_idx).cpu()
-    hyp_idx_map = torch.ones(n_hyps, dtype=torch.int64) * (hyps.shape[0] + 100)  ## initialize with idx out of range
+    hyp_idx_map = torch.ones(n_hyps, dtype=torch.int64) * (
+        hyps.shape[0] + 100
+    )  ## initialize with idx out of range
     hyp_idx_map[inter_hyps_idx] = torch.arange(hyps.shape[0], dtype=torch.int64)
 
     ## bring hyps to corresponding cycle inputs
@@ -849,7 +907,6 @@ def to_next_layer_partition_batched(
 
     ## for each intersected cycle, find new regions
     for target_cycle_idx in tqdm.tqdm(uniq_cycle_idx, desc="Iterating regions"):
-
         vert_mask = cyc_idx == target_cycle_idx
         hyp_mask = hyp_vert_cyc_idx[::2, -1] == target_cycle_idx
 
@@ -866,7 +923,10 @@ def to_next_layer_partition_batched(
 
         G = ig.Graph.from_networkx(G)
 
-        G = G.to_graph_tool(vertex_attributes={"v": "vector<float>"}, edge_attributes={"layer": "int", "hyp": "int"})
+        G = G.to_graph_tool(
+            vertex_attributes={"v": "vector<float>"},
+            edge_attributes={"layer": "int", "hyp": "int"},
+        )
 
         if current_layer == 1:
             print("Finding regions from first layer graph")
@@ -887,7 +947,11 @@ def to_next_layer_partition_batched(
         res_regions += cycles_new
 
     ## add cycles that were not intersected
-    non_int_cyc_idx = [each_idx for each_idx in torch.arange(len(cycles)) if each_idx not in uniq_cycle_idx]
+    non_int_cyc_idx = [
+        each_idx
+        for each_idx in torch.arange(len(cycles))
+        if each_idx not in uniq_cycle_idx
+    ]
 
     res_regions += [cycles[each_idx] for each_idx in non_int_cyc_idx]
     new_cyc_idx += non_int_cyc_idx
@@ -896,9 +960,11 @@ def to_next_layer_partition_batched(
 
 
 def networkx2graphtool(G):
-
     G = ig.Graph.from_networkx(G)
 
-    G = G.to_graph_tool(vertex_attributes={"v": "vector<float>"}, edge_attributes={"layer": "int", "hyp": "int"})
+    G = G.to_graph_tool(
+        vertex_attributes={"v": "vector<float>"},
+        edge_attributes={"layer": "int", "hyp": "int"},
+    )
 
     return G

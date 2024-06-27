@@ -8,10 +8,11 @@ from . import graph, utils
 
 @torch.no_grad()
 def get_hyp_endpoints(poly, hyps, verify=True):
-
     q = graph.get_intersection_pattern(poly, hyps)
     hyp_v1_v2_idx = graph.edge_hyp_intersections(q.T, poly, hyps)
-    poly_lines = graph.make_line_2D(poly[hyp_v1_v2_idx[:, 1]], poly[hyp_v1_v2_idx[:, 2]])
+    poly_lines = graph.make_line_2D(
+        poly[hyp_v1_v2_idx[:, 1]], poly[hyp_v1_v2_idx[:, 2]]
+    )
 
     poly_int_hyps = hyps[hyp_v1_v2_idx[:, 0]]
     v, flag = graph.find_intersection_2D(poly_lines, poly_int_hyps, verify=verify)
@@ -19,10 +20,11 @@ def get_hyp_endpoints(poly, hyps, verify=True):
     v = v.type(poly_lines.type())
 
     if verify:
-
         assert flag
 
-        flag = graph.verify_collinear(v, poly[hyp_v1_v2_idx[:, 1]], poly[hyp_v1_v2_idx[:, 2]])
+        flag = graph.verify_collinear(
+            v, poly[hyp_v1_v2_idx[:, 1]], poly[hyp_v1_v2_idx[:, 2]]
+        )
 
         assert flag
 
@@ -32,11 +34,19 @@ def get_hyp_endpoints(poly, hyps, verify=True):
 
 @torch.no_grad()
 def to_next_layer_partition_batched(
-    cycles, Abw, current_layer, NN, dtype=torch.float64, device="cuda", batch_size=-1, fwd_batch_size=-1
+    cycles,
+    Abw,
+    current_layer,
+    NN,
+    dtype=torch.float64,
+    device="cuda",
+    batch_size=-1,
+    fwd_batch_size=-1,
 ):
-
     if batch_size == -1:  ## revert to non-batched
-        res_regions, new_cyc_idx = graph.to_next_layer_partition(cycles, Abw, current_layer, NN, dtype, device)
+        res_regions, new_cyc_idx = graph.to_next_layer_partition(
+            cycles, Abw, current_layer, NN, dtype, device
+        )
         return res_regions, new_cyc_idx
 
     vec_cyc, cyc_idx, ends = graph.cycles_list2vec(cycles)
@@ -46,7 +56,9 @@ def to_next_layer_partition_batched(
 
     #     print(q.shape)
 
-    fused_op = lambda x: NN.layers[current_layer].get_intersection_pattern(NN.layers[:current_layer].forward(x))
+    fused_op = lambda x: NN.layers[current_layer].get_intersection_pattern(
+        NN.layers[:current_layer].forward(x)
+    )
 
     q = graph._batched_gpu_op(
         fused_op,
@@ -85,7 +97,9 @@ def to_next_layer_partition_batched(
     inter_hyps_idx = torch.unique(hyp_vert_cyc_idx[:, 0])
     print(inter_hyps_idx)
     hyps = NN.layers[current_layer].get_weights(row_idx=inter_hyps_idx).cpu()
-    hyp_idx_map = torch.ones(n_hyps, dtype=torch.int64) * (hyps.shape[0] + 100)  ## initialize with idx out of range
+    hyp_idx_map = torch.ones(n_hyps, dtype=torch.int64) * (
+        hyps.shape[0] + 100
+    )  ## initialize with idx out of range
     hyp_idx_map[inter_hyps_idx] = torch.arange(hyps.shape[0], dtype=torch.int64)
 
     ## bring hyps to corresponding cycle inputs
@@ -104,7 +118,6 @@ def to_next_layer_partition_batched(
     ###     get intersection with all cycle edges
     endpoints = []
     for target_cycle_idx in tqdm.tqdm(uniq_cycle_idx, desc="Iterating regions"):
-
         vert_mask = cyc_idx == target_cycle_idx
         hyp_mask = hyp_vert_cyc_idx[::2, -1] == target_cycle_idx
 
@@ -127,7 +140,6 @@ def get_partitions_with_db(
     n_workers=2,
     Abw_batch_size=16,
 ):
-
     poly = (T[..., :-1].T @ (domain.T - T[..., -1:])).T
     poly = poly.type(torch.float64)
 
@@ -153,8 +165,9 @@ def get_partitions_with_db(
         )
 
         with torch.no_grad():
-
-            means = utils.get_region_means(out_cyc, dims=out_cyc[0].shape[-1], device="cpu", dtype=torch.float64)
+            means = utils.get_region_means(
+                out_cyc, dims=out_cyc[0].shape[-1], device="cpu", dtype=torch.float64
+            )
 
             fused_op = (
                 lambda x: NN.layers[current_layer]
@@ -167,7 +180,10 @@ def get_partitions_with_db(
                 method=fused_op,
                 data=means,
                 batch_size=fwd_batch_size,
-                out_size=(means.shape[0], torch.prod(NN.layers[current_layer].output_shape)),
+                out_size=(
+                    means.shape[0],
+                    torch.prod(NN.layers[current_layer].output_shape),
+                ),
                 dtype=torch.float32,
                 workers=n_workers,
             )
@@ -187,14 +203,23 @@ def get_partitions_with_db(
                 drop_last=False,
             )
 
-            out_Abw = torch.zeros(len(out_idx), Wb.shape[0], Abw.shape[-1], device="cpu", dtype=torch.float32)
+            out_Abw = torch.zeros(
+                len(out_idx),
+                Wb.shape[0],
+                Abw.shape[-1],
+                device="cpu",
+                dtype=torch.float32,
+            )
 
             start = 0
             for in_batch in tqdm.tqdm(dloader, desc="Get Abw", total=len(dloader)):
-
                 end = start + in_batch.shape[0]
 
-                out_batch = utils.get_Abw(q=q[start:end].cuda(), Wb=Wb.to_dense(), incoming_Abw=in_batch.cuda())
+                out_batch = utils.get_Abw(
+                    q=q[start:end].cuda(),
+                    Wb=Wb.to_dense(),
+                    incoming_Abw=in_batch.cuda(),
+                )
 
                 out_Abw[start:end] = out_batch.cpu()
                 start = end
@@ -219,5 +244,5 @@ def get_partitions_with_db(
         )
     except:
         endpoints = [None]
-        
-    return out_cyc,endpoints,Abw
+
+    return out_cyc, endpoints, Abw
