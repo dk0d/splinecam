@@ -15,5 +15,6 @@ dependencies:
   - pytorch
   - torchvision
   - torchaudio
+  - pip
   - pip:
       - livelossplot
