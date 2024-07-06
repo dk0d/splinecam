@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
+from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 import time
 import os
@@ -52,8 +53,8 @@ def train_model(
             else:
                 model.eval()  # Set model to evaluate mode
 
-            running_loss = 0.0
-            running_corrects = 0
+            running_loss = torch.tensor(0.0)
+            running_corrects = torch.tensor(0)
 
             # Iterate over data.
             for i, (inputs, labels) in enumerate(dataloaders[phase]):
@@ -178,7 +179,7 @@ image_datasets = {
     ),
 }
 dataloaders = {
-    x: torch.utils.data.DataLoader(
+    x: DataLoader(
         image_datasets[x],
         batch_size=128,
         shuffle=True,
