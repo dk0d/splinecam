@@ -10,6 +10,8 @@ import copy
 from livelossplot import PlotLosses
 from torchvision.datasets import MNIST
 import datetime
+from aibox.torch.utils import get_device
+
 
 import sys
 
@@ -35,7 +37,7 @@ def train_model(
     return_best_val=False,
     checkpoint_path=None,
 ):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     since = time.time()
     liveloss = PlotLosses()
     best_model_wts = copy.deepcopy(model.state_dict())
@@ -144,96 +146,95 @@ def train_model(
     return model
 
 
-train_transform = transforms.Compose(
-    [
-        transforms.ToTensor(),
-        #         transforms.RandomHorizontalFlip(.5),
-        #         transforms.RandomResizedCrop((64,64)),
-        #         transforms.Resize(224, transforms.InterpolationMode.BICUBIC)
-        #         transforms.RandomRotation(10),
-        #         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-    ]
-)
-
-val_transform = transforms.Compose(
-    [
-        transforms.ToTensor(),
-        #         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        #         transforms.RandomHorizontalFlip(.5),
-        #         transforms.RandomResizedCrop((64,64)),
-        #         transforms.RandomRotation(10),
-        #         transforms.Resize(224, transforms.InterpolationMode.BICUBIC)
-    ]
-)
-
-data_transforms = {"train": train_transform, "val": val_transform}
-
-
-image_datasets = {
-    "train": MNIST(
-        "./data", train=True, transform=data_transforms["train"], download=True
-    ),
-    "val": MNIST(
-        "./data", train=False, transform=data_transforms["val"], download=True
-    ),
-}
-dataloaders = {
-    x: DataLoader(
-        image_datasets[x],
-        batch_size=128,
-        shuffle=True,
-        pin_memory=True,
-        num_workers=24,
-        drop_last=False,
+def main():
+    train_transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            #         transforms.RandomHorizontalFlip(.5),
+            #         transforms.RandomResizedCrop((64,64)),
+            #         transforms.Resize(224, transforms.InterpolationMode.BICUBIC)
+            #         transforms.RandomRotation(10),
+            #         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+        ]
     )
-    for x in ["train", "val"]
-}
-dataset_sizes = {x: len(image_datasets[x]) for x in ["train", "val"]}
+
+    val_transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            #         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            #         transforms.RandomHorizontalFlip(.5),
+            #         transforms.RandomResizedCrop((64,64)),
+            #         transforms.RandomRotation(10),
+            #         transforms.Resize(224, transforms.InterpolationMode.BICUBIC)
+        ]
+    )
+
+    data_transforms = {"train": train_transform, "val": val_transform}
+
+    image_datasets = {
+        "train": MNIST(
+            "./data", train=True, transform=data_transforms["train"], download=True
+        ),
+        "val": MNIST(
+            "./data", train=False, transform=data_transforms["val"], download=True
+        ),
+    }
+    dataloaders = {
+        x: DataLoader(
+            image_datasets[x],
+            batch_size=128,
+            shuffle=True,
+            pin_memory=True,
+            num_workers=24,
+            drop_last=False,
+        )
+        for x in ["train", "val"]
+    }
+    dataset_sizes = {x: len(image_datasets[x]) for x in ["train", "val"]}
+
+    width = params.width
+    depth = params.depth
+
+    model_ft = nn.Sequential(
+        nn.Flatten(),
+        nn.Linear(28 * 28, width),
+        nn.ReLU(),
+        *[nn.Linear(width, width), nn.ReLU()] * (depth - 2),
+        nn.Linear(width, 10),
+    )
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model_ft = model_ft.to(device)
+
+    criterion = nn.CrossEntropyLoss()
+    # Observe that all parameters are being optimized
+    optimizer_ft = optim.Adam(model_ft.parameters(), lr=0.001)
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
+
+    # optimizer = optim.SGD(model_ft.parameters(), lr=0.1,
+    #                       momentum=0.9, weight_decay=5e-4)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+
+    dir_name = params.save_dir
+    try:
+        os.mkdir(dir_name)
+    except FileExistsError:
+        pass
+
+    timestamp = str(datetime.datetime.now()).replace(" ", "-")
+    torch.save(model_ft, f"{dir_name}/{width}x{depth}_{0}_-1_-1.pt")
+    model_ft = train_model(
+        model_ft,
+        dataloaders,
+        dataset_sizes,
+        criterion,
+        optimizer_ft,
+        exp_lr_scheduler,
+        num_epochs=51,
+        checkpoint_path=f"{dir_name}/{width}x{depth}",
+        save_checkpoints=[2, 5, 10, 20, 50],
+    )
 
 
-width = params.width
-depth = params.depth
-
-model_ft = nn.Sequential(
-    nn.Flatten(),
-    nn.Linear(28 * 28, width),
-    nn.ReLU(),
-    *[nn.Linear(width, width), nn.ReLU()] * (depth - 2),
-    nn.Linear(width, 10),
-)
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model_ft = model_ft.to(device)
-
-
-criterion = nn.CrossEntropyLoss()
-# Observe that all parameters are being optimized
-optimizer_ft = optim.Adam(model_ft.parameters(), lr=0.001)
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
-
-
-# optimizer = optim.SGD(model_ft.parameters(), lr=0.1,
-#                       momentum=0.9, weight_decay=5e-4)
-# scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
-
-
-dir_name = params.save_dir
-try:
-    os.mkdir(dir_name)
-except FileExistsError:
-    pass
-
-timestamp = str(datetime.datetime.now()).replace(" ", "-")
-
-torch.save(model_ft, f"{dir_name}/{width}x{depth}_{0}_-1_-1.pt")
-model_ft = train_model(
-    model_ft,
-    dataloaders,
-    dataset_sizes,
-    criterion,
-    optimizer_ft,
-    exp_lr_scheduler,
-    num_epochs=51,
-    checkpoint_path=f"{dir_name}/{width}x{depth}",
-    save_checkpoints=[2, 5, 10, 20, 50],
-)
+if __name__ == "__main__":
+    main()
